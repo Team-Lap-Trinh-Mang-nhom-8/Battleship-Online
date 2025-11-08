@@ -48,7 +48,7 @@ class ServerPlayer:
 
 
 class Network:
-    server_addr = ""
+    server_addr = "localhost"
     port = 1234
     address = server_addr, port
 
@@ -114,6 +114,8 @@ class Network:
                     except KeyError:
                         player.conn.send("INVALID")
                 elif data["category"] == "POSITION":
+                    player.opponent.conn.send(data)
+                elif data["category"] == "CHAT":
                     player.opponent.conn.send(data)
             except:
                 break

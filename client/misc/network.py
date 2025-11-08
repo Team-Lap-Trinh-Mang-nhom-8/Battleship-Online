@@ -3,7 +3,7 @@ import socket
 
 
 class Network:
-    server = ""
+    server = "localhost"
     port = 1234
     address = server, port
 
