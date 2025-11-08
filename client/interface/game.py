@@ -25,10 +25,12 @@ class Game:
         self.chat_messages = []
         self.chat_input = ""
         self.chat_active = False
+        self.chat_visible = False
         self.small_font = pygame.font.Font("client/assets/retrofont.ttf", 12)
-        self.chat_box = pygame.Rect(10, 600, 430, 130)
-        self.chat_input_box = pygame.Rect(15, 705, 350, 20)
-        self.send_button = pygame.Rect(370, 705, 65, 20)
+        self.chat_toggle_button = pygame.Rect(350, 0, 95, 28)
+        self.chat_box = pygame.Rect(10, 30, 430, 100)
+        self.chat_input_box = pygame.Rect(15, 135, 350, 20)
+        self.send_button = pygame.Rect(370, 135, 65, 20)
 
     @staticmethod
     def check_game_over(grid):
@@ -175,13 +177,22 @@ class Game:
             )
 
     def draw_chat(self):
+        # Chat toggle button
+        pygame.draw.rect(self.screen, (0, 0, 100) if self.chat_visible else (100, 100, 100), self.chat_toggle_button)
+        pygame.draw.rect(self.screen, WHITE, self.chat_toggle_button, 2)
+        toggle_text = self.small_font.render("Chat", True, WHITE)
+        self.screen.blit(toggle_text, (self.chat_toggle_button.x + 30, self.chat_toggle_button.y + 8))
+        
+        if not self.chat_visible:
+            return
+            
         # Chat box background
         pygame.draw.rect(self.screen, (50, 50, 50), self.chat_box)
         pygame.draw.rect(self.screen, WHITE, self.chat_box, 2)
         
         # Display messages
-        y_offset = 605
-        for msg in self.chat_messages[-8:]:
+        y_offset = 35
+        for msg in self.chat_messages[-6:]:
             text_surface = self.small_font.render(msg, True, WHITE)
             self.screen.blit(text_surface, (15, y_offset))
             y_offset += 15
@@ -203,12 +214,12 @@ class Game:
     
     def handle_chat_input(self, event):
         if event.type == pygame.KEYDOWN:
-            if self.chat_active:
+            if self.chat_active and self.chat_visible:
                 if event.key == pygame.K_RETURN:
                     if self.chat_input.strip():
                         self.chat_messages.append(f"You: {self.chat_input}")
                         self.n.send({"category": "CHAT", "payload": self.chat_input})
-                        if len(self.chat_messages) > 8:
+                        if len(self.chat_messages) > 6:
                             self.chat_messages.pop(0)
                         self.chat_input = ""
                 elif event.key == pygame.K_BACKSPACE:
@@ -216,17 +227,21 @@ class Game:
                 elif len(self.chat_input) < 40:
                     self.chat_input += event.unicode
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            if self.chat_input_box.collidepoint(event.pos):
-                self.chat_active = True
-            elif self.send_button.collidepoint(event.pos):
-                if self.chat_input.strip():
-                    self.chat_messages.append(f"You: {self.chat_input}")
-                    self.n.send({"category": "CHAT", "payload": self.chat_input})
-                    if len(self.chat_messages) > 8:
-                        self.chat_messages.pop(0)
-                    self.chat_input = ""
-            else:
+            if self.chat_toggle_button.collidepoint(event.pos):
+                self.chat_visible = not self.chat_visible
                 self.chat_active = False
+            elif self.chat_visible:
+                if self.chat_input_box.collidepoint(event.pos):
+                    self.chat_active = True
+                elif self.send_button.collidepoint(event.pos):
+                    if self.chat_input.strip():
+                        self.chat_messages.append(f"You: {self.chat_input}")
+                        self.n.send({"category": "CHAT", "payload": self.chat_input})
+                        if len(self.chat_messages) > 6:
+                            self.chat_messages.pop(0)
+                        self.chat_input = ""
+                else:
+                    self.chat_active = False
 
     def reset(self):
         self.game_over = False
@@ -243,3 +258,4 @@ class Game:
         self.chat_messages = []
         self.chat_input = ""
         self.chat_active = False
+        self.chat_visible = False
