@@ -20,6 +20,15 @@ class Game:
         self.final_text = ""
         self.big_font = pygame.font.Font("client/assets/retrofont.ttf", 34)
         self.menu_button = pygame.Rect(125, 0, 200, 28)
+        
+        # Chat functionality
+        self.chat_messages = []
+        self.chat_input = ""
+        self.chat_active = False
+        self.small_font = pygame.font.Font("client/assets/retrofont.ttf", 12)
+        self.chat_box = pygame.Rect(10, 600, 430, 130)
+        self.chat_input_box = pygame.Rect(15, 705, 350, 20)
+        self.send_button = pygame.Rect(370, 705, 65, 20)
 
     @staticmethod
     def check_game_over(grid):
@@ -57,6 +66,10 @@ class Game:
                         rx, ry = received["payload"]
                         self.player.is_turn = True
                         self.player.grid[rx][ry][aimed] = True
+                    elif received["category"] == "CHAT":
+                        self.chat_messages.append(f"Opponent: {received['payload']}")
+                        if len(self.chat_messages) > 8:
+                            self.chat_messages.pop(0)
 
     def render(self):
         pygame.draw.line(self.screen, BLACK, (0, 384), (450, 384), 10)
@@ -88,6 +101,7 @@ class Game:
                         self.sent.add(x)
                         self.n.send({"category": "POSITION", "payload": x})
         self.opponent.draw_grid(self.screen)
+        self.draw_chat()
 
     def game_over_screen(self):
         if self.final_text == "You Lost!":
@@ -138,6 +152,7 @@ class Game:
                     else:
                         text = font.render("Opponent's turn", True, WHITE)
                     self.screen.blit(text, (0, 0))
+                self.draw_chat()
             else:
                 if not self.sent_over:
                     self.n.send({"category": "OVER"})
@@ -159,6 +174,60 @@ class Game:
                 ),
             )
 
+    def draw_chat(self):
+        # Chat box background
+        pygame.draw.rect(self.screen, (50, 50, 50), self.chat_box)
+        pygame.draw.rect(self.screen, WHITE, self.chat_box, 2)
+        
+        # Display messages
+        y_offset = 605
+        for msg in self.chat_messages[-8:]:
+            text_surface = self.small_font.render(msg, True, WHITE)
+            self.screen.blit(text_surface, (15, y_offset))
+            y_offset += 15
+        
+        # Input box
+        color = WHITE if self.chat_active else (100, 100, 100)
+        pygame.draw.rect(self.screen, (30, 30, 30), self.chat_input_box)
+        pygame.draw.rect(self.screen, color, self.chat_input_box, 2)
+        
+        # Input text
+        input_surface = self.small_font.render(self.chat_input, True, WHITE)
+        self.screen.blit(input_surface, (self.chat_input_box.x + 5, self.chat_input_box.y + 3))
+        
+        # Send button
+        pygame.draw.rect(self.screen, (0, 100, 0), self.send_button)
+        pygame.draw.rect(self.screen, WHITE, self.send_button, 2)
+        send_text = self.small_font.render("Send", True, WHITE)
+        self.screen.blit(send_text, (self.send_button.x + 20, self.send_button.y + 3))
+    
+    def handle_chat_input(self, event):
+        if event.type == pygame.KEYDOWN:
+            if self.chat_active:
+                if event.key == pygame.K_RETURN:
+                    if self.chat_input.strip():
+                        self.chat_messages.append(f"You: {self.chat_input}")
+                        self.n.send({"category": "CHAT", "payload": self.chat_input})
+                        if len(self.chat_messages) > 8:
+                            self.chat_messages.pop(0)
+                        self.chat_input = ""
+                elif event.key == pygame.K_BACKSPACE:
+                    self.chat_input = self.chat_input[:-1]
+                elif len(self.chat_input) < 40:
+                    self.chat_input += event.unicode
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if self.chat_input_box.collidepoint(event.pos):
+                self.chat_active = True
+            elif self.send_button.collidepoint(event.pos):
+                if self.chat_input.strip():
+                    self.chat_messages.append(f"You: {self.chat_input}")
+                    self.n.send({"category": "CHAT", "payload": self.chat_input})
+                    if len(self.chat_messages) > 8:
+                        self.chat_messages.pop(0)
+                    self.chat_input = ""
+            else:
+                self.chat_active = False
+
     def reset(self):
         self.game_over = False
         self.waiting = True
@@ -171,3 +240,6 @@ class Game:
 
         self.sent = set()
         self.final_text = ""
+        self.chat_messages = []
+        self.chat_input = ""
+        self.chat_active = False

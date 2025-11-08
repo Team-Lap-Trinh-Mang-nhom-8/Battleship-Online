@@ -59,6 +59,8 @@ class Main:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
+                elif self.game and not self.menu.show_menu:
+                    self.game.handle_chat_input(event)
             pygame.display.flip()
             self.clock.tick(30)
 
