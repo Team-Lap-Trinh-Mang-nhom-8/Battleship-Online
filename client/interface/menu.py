@@ -41,7 +41,10 @@ class Menu:
         self.ships = [Ship() for _ in range(3)]
 
     def run(self):
-        self.screen.fill(BACKGROUND)
+        bg = pygame.image.load("client/assets/bg_ocean.jpg").convert()
+        bg = pygame.transform.scale(bg, (450, 700))
+        self.screen.blit(bg, (0, 0))
+
         self.draw_ships()
         title = self.font.render("BATTLESHIP", True, CYAN)
         online_text = self.small_font.render("ONLINE", True, AQUA)

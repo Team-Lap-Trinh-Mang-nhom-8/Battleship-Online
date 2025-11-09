@@ -68,11 +68,6 @@ class Network:
             print("Connected to: ", address)
 
             conn = Network(sock=conn, is_server=False)
-            # if len(self.game_list[-1].players) >= 2:
-            #     self.game_list.append(Room())
-            # self.game_list[-1].players.append(
-            #     (p := ServerPlayer(conn, self.game_list[-1]))
-            # )
             lock.acquire()
             Thread(
                 target=self.proceed_with_connection,
@@ -80,12 +75,6 @@ class Network:
             ).start()
             lock.release()
             print(self.game_list)
-            # for game in self.game_list:
-            #     if not game.sent_board:
-            #         if len(game.players) == 2:
-            #             game.send_board()
-            #             game.sent_board = True
-
     def proceed_with_connection(self, player):
         while True:
             try:
