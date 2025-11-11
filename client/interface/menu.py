@@ -42,12 +42,14 @@ class Menu:
 
     def run(self):
         bg = pygame.image.load("client/assets/bg_ocean.jpg").convert()
-        bg = pygame.transform.scale(bg, (450, 700))
+        # Scale the background to match the screen size while maintaining aspect ratio
+        screen_width, screen_height = self.screen.get_size()
+        bg = pygame.transform.scale(bg, (screen_width, screen_height))
         self.screen.blit(bg, (0, 0))
 
         self.draw_ships()
-        title = self.font.render("BATTLESHIP", True, CYAN)
-        online_text = self.small_font.render("ONLINE", True, AQUA)
+        title = self.font.render("BATTLESHIP", True, RED)
+        online_text = self.small_font.render("ONLINE", True, RED)
         self.screen.blit(title, (225 - title.get_width() // 2, 140))
         self.screen.blit(online_text, (225 - online_text.get_width() // 2, 190))
 

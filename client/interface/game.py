@@ -11,6 +11,10 @@ class Game:
         self.opp_disconnected = False
         self.room_id = ""
         self.sent_over = False
+        
+        # Load and prepare background image
+        self.background = pygame.image.load("client/assets/bg2.jpg").convert()
+        self.background = pygame.transform.scale(self.background, (450, 740))
 
         self.player = Player()
         self.opponent = Opponent()
@@ -74,7 +78,42 @@ class Game:
                             self.chat_messages.pop(0)
 
     def render(self):
-        pygame.draw.line(self.screen, BLACK, (0, 384), (450, 384), 10)
+        # Get screen dimensions
+        screen_width, screen_height = self.screen.get_size()
+        
+        # Scale background to fill the entire screen without changing aspect ratio
+        bg_width, bg_height = self.background.get_size()
+        screen_ratio = screen_width / screen_height
+        bg_ratio = bg_width / bg_height
+        
+        if screen_ratio > bg_ratio:
+            # Screen is wider than background (relative to height)
+            new_width = int(screen_height * bg_ratio)
+            new_height = screen_height
+            self.background = pygame.transform.scale(self.background, (new_width, new_height))
+            # Center the background horizontally
+            x_offset = (screen_width - new_width) // 2
+            self.screen.blit(self.background, (x_offset, 0))
+        else:
+            # Screen is taller than background (relative to width)
+            new_width = screen_width
+            new_height = int(screen_width / bg_ratio)
+            self.background = pygame.transform.scale(self.background, (new_width, new_height))
+            # Center the background vertically
+            y_offset = (screen_height - new_height) // 2
+            self.screen.blit(self.background, (0, y_offset))
+        
+        # Create semi-transparent overlay for game boards
+        overlay = pygame.Surface((screen_width, screen_height // 2 - 20), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))  # More opaque overlay for better visibility
+        
+        # Draw overlays for both player and opponent boards
+        self.screen.blit(overlay, (0, 10))  # Player board
+        self.screen.blit(overlay, (0, screen_height // 2 + 10))  # Opponent board
+        
+        # Draw center line
+        pygame.draw.line(self.screen, WHITE, (0, screen_height // 2), (screen_width, screen_height // 2), 4)
+        
         self.player.draw_grid(self.screen)
         for ex, sx in enumerate(self.opponent.grid):
             for es, square in enumerate(sx):

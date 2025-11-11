@@ -75,6 +75,20 @@ class Opponent:
     def draw_grid(self, screen):
         for sx in self.grid:
             for square in sx:
+                # Draw cell background
+                cell_rect = pygame.Rect(square[rect])
+                # Solid background for the cell
+                pygame.draw.rect(screen, (30, 30, 60, 200), cell_rect)  # Semi-transparent dark blue
+                # Cell border
+                pygame.draw.rect(screen, (80, 80, 120), cell_rect, 1)
+                
+                # Highlight hovered cell
+                if self.is_hovered(pygame.mouse.get_pos(), cell_rect):
+                    highlight = pygame.Surface((cell_rect.width-2, cell_rect.height-2), pygame.SRCALPHA)
+                    highlight.fill((255, 255, 255, 30))  # Semi-transparent white
+                    screen.blit(highlight, (cell_rect.x+1, cell_rect.y+1))
+                
+                # Draw hit/miss indicators
                 if square[perma_color]:
                     pygame.draw.circle(
                         screen,
@@ -83,14 +97,6 @@ class Opponent:
                         11,
                     )
                     square[empty] = 1
-                elif self.is_hovered(pygame.mouse.get_pos(), pygame.Rect(square[rect])):
-                    square[empty] = 0
-                    square[color] = (85, 92, 108)
-                else:
-                    square[empty] = 1
-                pygame.draw.rect(
-                    screen, square[color], pygame.Rect(square[rect]), square[empty]
-                )
                 if (
                     self.is_sunk(self.grid, square[ship])
                     and not self.sunken_ships[square[ship]]
