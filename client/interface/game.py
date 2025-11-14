@@ -214,6 +214,20 @@ class Game:
                     (370 - txt.get_height() // 2) + 100,
                 ),
             )
+            
+            # Draw menu button
+            pygame.draw.rect(self.screen, BACKGROUND, self.menu_button)
+            pygame.draw.rect(self.screen, BLACK, self.menu_button, 2)
+            menu_font = pygame.font.Font("client/assets/retrofont.ttf", 14)
+            menu_text = menu_font.render("Return To Menu", True, BLUE)
+            self.screen.blit(menu_text, (225 - menu_text.get_width() // 2, 6))
+            
+            # Check for menu button click
+            if (
+                self.menu_button.collidepoint(*pygame.mouse.get_pos())
+                and pygame.mouse.get_pressed(3)[0]
+            ):
+                return "MENU"
 
     def draw_chat(self):
         # Chat toggle button
