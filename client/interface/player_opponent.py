@@ -37,6 +37,13 @@ class Player:
         self.ship_destroyed_img = self.wrecks[self.fire_index // 7]
         for sx in self.grid:
             for square in sx:
+                cell_rect = pygame.Rect(square[rect])
+                # Hover highlight (slight color change)
+                if Opponent.is_hovered(pygame.mouse.get_pos(), cell_rect):
+                    highlight = pygame.Surface((cell_rect.width - 2, cell_rect.height - 2), pygame.SRCALPHA)
+                    highlight.fill((255, 255, 255, 30))
+                    screen.blit(highlight, (cell_rect.x + 1, cell_rect.y + 1))
+
                 if square[ship] and square[aimed]:
                     r = pygame.Rect(square[rect])
                     r.y += 10
@@ -52,7 +59,7 @@ class Player:
                         1,
                     )
                 pygame.draw.rect(
-                    screen, square[color], pygame.Rect(square[rect]), square[empty]
+                    screen, square[color], cell_rect, square[empty]
                 )
 
 

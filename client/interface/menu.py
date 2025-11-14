@@ -57,9 +57,14 @@ class Menu:
         pygame.draw.rect(self.screen, BLACK, self.create_button, 4)
         pygame.draw.rect(self.screen, BACKGROUND, self.join_button)
         pygame.draw.rect(self.screen, BLACK, self.join_button, 4)
+        pygame.draw.rect(self.screen, BACKGROUND, self.solo_button)
+        pygame.draw.rect(self.screen, BLACK, self.solo_button, 4)
 
         self.screen.blit(
             self.create_text, (225 - self.create_text.get_width() // 2, 365)
+        )
+        self.screen.blit(
+            self.solo_text, (225 - self.solo_text.get_width() // 2, 565)
         )
         if not self.join_hover:
             self.join_code = ""
@@ -103,6 +108,13 @@ class Menu:
         elif self.join_button.collidepoint(m_x, m_y):
             self.join_hover = True
             self.create_button_color = BACKGROUND
+        elif self.solo_button.collidepoint(m_x, m_y):
+            if pygame.mouse.get_pressed(3)[0]:
+                return {"category": "SOLO"}
+            self.join_hover = False
+            self.invalid_code = False
+            self.game_taken = False
+            self.create_button_color = BACKGROUND
         else:
             self.join_hover = False
             self.invalid_code = False
@@ -131,6 +143,8 @@ class Menu:
         self.join_text = self.small_font.render("JOIN GAME", True, BLUE)
         self.create_button = pygame.Rect(100, 350, 250, 60)
         self.join_button = pygame.Rect(100, 450, 250, 60)
+        self.solo_button = pygame.Rect(100, 550, 250, 60)
+        self.solo_text = self.small_font.render("PLAY SOLO", True, BLUE)
         self.join_hover = False
         self.join_code = ""
         self.blink_count = 0
