@@ -2,6 +2,7 @@ import json
 import socket
 import string
 import random
+import os
 from threading import Lock, Thread
 
 from server.utils import layout_ships
@@ -48,9 +49,11 @@ class ServerPlayer:
 
 
 class Network:
-    server_addr = "localhost"
-    port = 1234
-    address = server_addr, port
+    # Allow overriding host/port via environment variables for easier testing and
+    # running on LAN. Defaults remain localhost:1234 for backward compatibility.
+    server_addr = os.getenv("SERVER_HOST", "localhost")
+    port = int(os.getenv("SERVER_PORT", "1234"))
+    address = (server_addr, port)
 
     def __init__(
         self, sock=socket.socket(socket.AF_INET, socket.SOCK_STREAM), is_server=True

@@ -4,7 +4,7 @@ from client.misc.colors import *
 
 
 class Game:
-    def __init__(self, screen, network):
+    def __init__(self, screen, network, ai=None, player_grid=None):
         self.screen = screen
         self.game_over = False
         self.waiting = True
@@ -12,13 +12,28 @@ class Game:
         self.room_id = ""
         self.sent_over = False
         
-        # Load and prepare background image
-        self.background = pygame.image.load("client/assets/bg2.jpg").convert()
+        # Load and prepare background image (use ocean background)
+        self.background = pygame.image.load("client/assets/bg_ocean.jpg").convert()
         self.background = pygame.transform.scale(self.background, (450, 740))
 
         self.player = Player()
         self.opponent = Opponent()
         self.n = network
+        # AI (solo) support
+        self.ai = ai
+        if self.ai:
+            # place opponent grid from AI and set player grid if provided
+            self.opponent.grid = self.ai.grid
+            if player_grid:
+                self.player.grid = player_grid
+            else:
+                # create a random player grid if none provided
+                from client.misc.ai import create_ship_grid
+
+                self.player.grid = create_ship_grid(sx=50, ex=400, sy=390, ey=730)
+            # start immediately in solo mode
+            self.waiting = False
+            self.player.is_turn = True
 
         self.sent = set()
         self.final_text = ""
@@ -138,11 +153,26 @@ class Game:
                                 self.opponent.miss_sound.play()
                                 self.opponent.sound_counter += 1
                             self.opponent.sound_counter = 0
-                        self.player.is_turn = False
                         self.sent.add(x)
-                        self.n.send({"category": "POSITION", "payload": x})
+                        # Solo mode: let AI take a move locally
+                        if self.ai:
+                            # process AI choice against player grid
+                            rx, ry = self.ai.choose_move(self.player.grid)
+                            self.player.grid[rx][ry][aimed] = True
+                            if self.player.grid[rx][ry][ship]:
+                                self.player.grid[rx][ry][perma_color] = RED
+                            else:
+                                self.player.grid[rx][ry][perma_color] = WHITE
+                            # player remains with turn after AI move
+                            self.player.is_turn = True
+                        else:
+                            self.player.is_turn = False
+                            if self.n:
+                                self.n.send({"category": "POSITION", "payload": x})
         self.opponent.draw_grid(self.screen)
         self.draw_chat()
+
+    
 
     def game_over_screen(self):
         if self.final_text == "You Lost!":
@@ -196,11 +226,13 @@ class Game:
                 self.draw_chat()
             else:
                 if not self.sent_over:
-                    self.n.send({"category": "OVER"})
+                    if self.n:
+                        self.n.send({"category": "OVER"})
                     self.sent_over = True
                 return self.game_over_screen()
         else:
-            self.screen.fill(BACKGROUND)
+            # Show background image behind waiting text
+            self.screen.blit(self.background, (0, 0))
             txt = self.big_font.render("Waiting For Player", True, GREEN)
             font = pygame.font.Font("client/assets/retrofont.ttf", 24)
             roomid_text = font.render(self.room_id, True, GREEN)

@@ -6,6 +6,9 @@ from client.interface.game import Game
 from client.interface.menu import Menu
 from client.misc.network import Network
 
+# AI support
+from client.misc.ai import create_ship_grid, Bot
+
 
 class Main:
     def __init__(self):
@@ -26,6 +29,17 @@ class Main:
                     if r == "QUIT":
                         self.running = False
                         break
+                    # SOLO mode
+                    if isinstance(r, dict) and r.get("category") == "SOLO":
+                        if not self.game:
+                            # Create player and bot ship grids
+                            player_grid = create_ship_grid(sx=50, ex=400, sy=390, ey=730)
+                            bot_grid = create_ship_grid(sx=50, ex=400, sy=30, ey=370)
+                            bot = Bot(grid=bot_grid)
+                            self.game = Game(self.screen, None, ai=bot, player_grid=player_grid)
+                        self.menu.show_menu = False
+                        continue
+                    # Online flow (unchanged)
                     if not self.game:
                         self.game = Game(self.screen, Network())
                     self.game.n.send(r)
