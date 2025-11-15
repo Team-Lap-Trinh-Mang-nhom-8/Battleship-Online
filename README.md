@@ -24,21 +24,7 @@
 - Thư viện `pygame`.
 - Kết nối mạng cục bộ (localhost) hoặc theo địa chỉ `HOST`/`PORT` nếu muốn mở rộng.
 
-### Cài đặt nhanh
 
-1. Tạo môi trường ảo (tuỳ chọn) và cài đặt phụ thuộc:
-
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install pygame
-```
-
-2. Nếu cần, lưu lại phụ thuộc:
-
-```powershell
-pip freeze > requirements.txt
-```
 
 ### Khởi chạy trò chơi
 
