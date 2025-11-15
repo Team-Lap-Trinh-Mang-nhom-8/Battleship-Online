@@ -25,6 +25,8 @@ class Room:
             self.players[0],
         )
         for player in self.players:
+            opponent_name = player.opponent.name
+            opponent_avatar = player.opponent.avatar
             player.conn.send(
                 {
                     "category": "BOARD",
@@ -37,6 +39,8 @@ class Room:
                             for yi, square in enumerate(x)
                             if square["ship"]
                         ],
+                        opponent_name,
+                        opponent_avatar,
                     ],
                 }
             )
@@ -46,6 +50,8 @@ class ServerPlayer:
     def __init__(self, conn, room=None):
         self.conn = conn
         self.room = room
+        self.name = ""
+        self.avatar = 0
 
 
 class Network:
@@ -89,6 +95,8 @@ class Network:
                         del self.game_list[player.room._id]
                     player.room = None
                 elif data["category"] == "CREATE":
+                    player.name = data.get("name", "")
+                    player.avatar = data.get("avatar", 0)
                     i = self.generate_id()
                     self.game_list[i] = Room()
                     self.game_list[i]._id = i
@@ -96,6 +104,8 @@ class Network:
                     player.room = self.game_list[i]
                     player.conn.send({"category": "ID", "payload": i})
                 elif data["category"] == "JOIN":
+                    player.name = data.get("name", "")
+                    player.avatar = data.get("avatar", 0)
                     try:
                         if len(self.game_list[data["payload"]].players) == 2:
                             player.conn.send("TAKEN")

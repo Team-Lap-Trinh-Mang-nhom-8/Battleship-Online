@@ -3,6 +3,92 @@ import random
 from client.misc.colors import *
 
 
+class PlayerSetup:
+    def __init__(self, screen):
+        self.screen = screen
+        self.font = pygame.font.Font("client/assets/retrofont.ttf", 36)
+        self.small_font = pygame.font.Font("client/assets/retrofont.ttf", 25)
+        self.name = ""
+        self.selected_avatar = 0
+        self.avatars = [
+            pygame.image.load("client/assets/avatar1.jpg"),
+            pygame.image.load("client/assets/avatar2.jpg"),
+            pygame.image.load("client/assets/avatar3.jpg"),
+            pygame.image.load("client/assets/avatar4.jpg"),
+        ]
+        self.confirm_button = pygame.Rect(125, 650, 200, 50)
+        self.avatar_buttons = [pygame.Rect(50 + i * 100, 400, 80, 80) for i in range(4)]
+        self.name_input_box = pygame.Rect(50, 300, 350, 50)
+        self.active_input = False
+        self.cursor_visible = True
+        self.cursor_timer = 0
+
+    def run(self):
+        bg = pygame.image.load("client/assets/bg_ocean.jpg").convert()
+        screen_width, screen_height = self.screen.get_size()
+        bg = pygame.transform.scale(bg, (screen_width, screen_height))
+        self.screen.blit(bg, (0, 0))
+
+        # Title
+        title = self.font.render("PLAYER SETUP", True, RED)
+        self.screen.blit(title, (225 - title.get_width() // 2, 100))
+
+        # Name input
+        name_label = self.small_font.render("Enter Name:", True, BLUE)
+        self.screen.blit(name_label, (50, 270))
+        pygame.draw.rect(self.screen, BACKGROUND, self.name_input_box)
+        pygame.draw.rect(self.screen, WHITE if self.active_input else BLUE, self.name_input_box, 2)
+        name_text = self.small_font.render(self.name + ("|" if self.cursor_visible else ""), True, BLUE)
+        self.screen.blit(name_text, (self.name_input_box.x + 10, self.name_input_box.y + 10))
+
+        # Avatar selection
+        avatar_label = self.small_font.render("Select Avatar:", True, BLUE)
+        self.screen.blit(avatar_label, (50, 350))
+        for i, avatar in enumerate(self.avatars):
+            button = self.avatar_buttons[i]
+            color = HOVER if i == self.selected_avatar else BACKGROUND
+            pygame.draw.rect(self.screen, color, button)
+            pygame.draw.rect(self.screen, BLACK, button, 2)
+            avatar_scaled = pygame.transform.scale(avatar, (70, 70))
+            self.screen.blit(avatar_scaled, (button.x + 5, button.y + 5))
+
+        # Confirm button
+        pygame.draw.rect(self.screen, GREEN, self.confirm_button)
+        pygame.draw.rect(self.screen, BLACK, self.confirm_button, 2)
+        confirm_text = self.small_font.render("CONFIRM", True, BLACK)
+        self.screen.blit(confirm_text, (225 - confirm_text.get_width() // 2, 665))
+
+        # Handle events
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return "QUIT"
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if self.name_input_box.collidepoint(event.pos):
+                    self.active_input = True
+                else:
+                    self.active_input = False
+                for i, button in enumerate(self.avatar_buttons):
+                    if button.collidepoint(event.pos):
+                        self.selected_avatar = i
+                if self.confirm_button.collidepoint(event.pos) and self.name.strip():
+                    return {"name": self.name.strip(), "avatar": self.selected_avatar}
+            if event.type == pygame.KEYDOWN and self.active_input:
+                if event.key == pygame.K_BACKSPACE:
+                    self.name = self.name[:-1]
+                elif event.key == pygame.K_RETURN and self.name.strip():
+                    return {"name": self.name.strip(), "avatar": self.selected_avatar}
+                elif len(self.name) < 20:
+                    self.name += event.unicode
+
+        # Cursor blinking
+        self.cursor_timer += 1
+        if self.cursor_timer >= 30:
+            self.cursor_visible = not self.cursor_visible
+            self.cursor_timer = 0
+
+        return None
+
+
 class Particle:
     def __init__(self, location, velocity, time):
         self.location = location

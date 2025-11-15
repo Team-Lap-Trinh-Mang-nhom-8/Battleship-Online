@@ -11,7 +11,7 @@ class Game:
         self.opp_disconnected = False
         self.room_id = ""
         self.sent_over = False
-        
+
         # Load and prepare background image (use ocean background)
         self.background = pygame.image.load("client/assets/bg_ocean.jpg").convert()
         self.background = pygame.transform.scale(self.background, (450, 740))
@@ -39,7 +39,7 @@ class Game:
         self.final_text = ""
         self.big_font = pygame.font.Font("client/assets/retrofont.ttf", 34)
         self.menu_button = pygame.Rect(125, 0, 200, 28)
-        
+
         # Chat functionality
         self.chat_messages = []
         self.chat_input = ""
@@ -50,6 +50,18 @@ class Game:
         self.chat_box = pygame.Rect(10, 30, 430, 100)
         self.chat_input_box = pygame.Rect(15, 135, 350, 20)
         self.send_button = pygame.Rect(370, 135, 65, 20)
+
+        # Player info
+        self.player_name = ""
+        self.player_avatar = 0
+        self.opponent_name = ""
+        self.opponent_avatar = 0
+        self.avatars = [
+            pygame.image.load("client/assets/avatar1.jpg"),
+            pygame.image.load("client/assets/avatar2.jpg"),
+            pygame.image.load("client/assets/avatar3.jpg"),
+            pygame.image.load("client/assets/avatar4.jpg"),
+        ]
 
     @staticmethod
     def check_game_over(grid):
@@ -81,6 +93,9 @@ class Game:
                         self.player.grid = received[1]
                         for xi, yi, ship_ in received[2]:
                             self.opponent.grid[xi][yi][ship] = ship_
+                        if len(received) > 3:
+                            self.opponent_name = received[3]
+                            self.opponent_avatar = received[4]
                     elif received["category"] == "ID":
                         self.room_id = received["payload"]
                     elif received["category"] == "POSITION":
@@ -88,7 +103,7 @@ class Game:
                         self.player.is_turn = True
                         self.player.grid[rx][ry][aimed] = True
                     elif received["category"] == "CHAT":
-                        self.chat_messages.append(f"Opponent: {received['payload']}")
+                        self.chat_messages.append(f"{self.opponent_name}: {received['payload']}")
                         if len(self.chat_messages) > 8:
                             self.chat_messages.pop(0)
 
@@ -281,6 +296,11 @@ class Game:
             text_surface = self.small_font.render(msg, True, WHITE)
             self.screen.blit(text_surface, (15, y_offset))
             y_offset += 15
+
+        # Display opponent avatar in chat if available
+        if self.opponent_name and self.chat_visible:
+            avatar_img = pygame.transform.scale(self.avatars[self.opponent_avatar], (20, 20))
+            self.screen.blit(avatar_img, (self.chat_box.x + 5, self.chat_box.y + 5))
         
         # Input box
         color = WHITE if self.chat_active else (100, 100, 100)
