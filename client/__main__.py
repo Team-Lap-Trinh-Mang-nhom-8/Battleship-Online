@@ -13,7 +13,7 @@ from client.misc.ai import create_ship_grid, Bot
 class Main:
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode((450, 740))
+        self.screen = pygame.display.set_mode((1200, 700))
         pygame.display.set_caption("Battleship")
 
         self.running = True
@@ -54,6 +54,9 @@ class Main:
                     self.player_data.update(setup_result)  # Merge name and avatar
                     if not self.game:
                         self.game = Game(self.screen, Network())
+                    # Set player name and avatar
+                    self.game.player_name = setup_result.get("name", "")
+                    self.game.player_avatar = setup_result.get("avatar", 0)
                     self.game.n.send(self.player_data)
                     if not self.thread_started:
                         if self.player_data.get("category") == "CREATE":

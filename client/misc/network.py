@@ -9,12 +9,30 @@ class Network:
 
     def __init__(
         self,
-        sock=socket.socket(socket.AF_INET, socket.SOCK_STREAM),
+        sock=None,
     ):
-        self.client = sock
-        self.client.connect(self.address)
+        if sock is None:
+            self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        else:
+            self.client = sock
+        self.connected = False
+    
+    def connect(self):
+        """Connect to the server. Can be called explicitly or will be called automatically on first send/receive."""
+        if not self.connected:
+            try:
+                self.client.connect(self.address)
+                self.connected = True
+            except ConnectionRefusedError:
+                raise ConnectionRefusedError(f"Could not connect to server at {self.address}. Make sure the server is running.")
+    
+    def ensure_connected(self):
+        """Ensure connection is established before operations."""
+        if not self.connected:
+            self.connect()
 
     def receive(self):
+        self.ensure_connected()
         buff = b""
         n = int.from_bytes(self.client.recv(4)[:4], "big")
         while n > 0:
@@ -24,6 +42,7 @@ class Network:
         return json.loads(buff.decode())
 
     def send(self, *data):
+        self.ensure_connected()
         if len(data) == 1:
             data = data[0]
         final_data = b""

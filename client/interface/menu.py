@@ -16,9 +16,26 @@ class PlayerSetup:
             pygame.image.load("client/assets/avatar3.jpg"),
             pygame.image.load("client/assets/avatar4.jpg"),
         ]
-        self.confirm_button = pygame.Rect(125, 650, 200, 50)
-        self.avatar_buttons = [pygame.Rect(50 + i * 100, 400, 80, 80) for i in range(4)]
-        self.name_input_box = pygame.Rect(50, 300, 350, 50)
+        # Initialize with screen dimensions for centering
+        screen_width, screen_height = screen.get_size()
+        center_x = screen_width // 2
+        
+        # Confirm button centered
+        confirm_width = 200
+        confirm_height = 50
+        self.confirm_button = pygame.Rect(center_x - confirm_width // 2, screen_height - 100, confirm_width, confirm_height)
+        
+        # Avatar buttons centered horizontally
+        avatar_size = 80
+        avatar_spacing = 20
+        total_avatar_width = (avatar_size * 4) + (avatar_spacing * 3)
+        avatar_start_x = center_x - total_avatar_width // 2
+        self.avatar_buttons = [pygame.Rect(avatar_start_x + i * (avatar_size + avatar_spacing), screen_height // 2 + 50, avatar_size, avatar_size) for i in range(4)]
+        
+        # Name input box centered
+        input_width = 350
+        input_height = 50
+        self.name_input_box = pygame.Rect(center_x - input_width // 2, screen_height // 2 - 100, input_width, input_height)
         self.active_input = False
         self.cursor_visible = True
         self.cursor_timer = 0
@@ -29,13 +46,18 @@ class PlayerSetup:
         bg = pygame.transform.scale(bg, (screen_width, screen_height))
         self.screen.blit(bg, (0, 0))
 
+        screen_width, screen_height = self.screen.get_size()
+        center_x = screen_width // 2
+        
         # Title
         title = self.font.render("PLAYER SETUP", True, RED)
-        self.screen.blit(title, (225 - title.get_width() // 2, 100))
+        title_y = screen_height // 6
+        self.screen.blit(title, (center_x - title.get_width() // 2, title_y))
 
         # Name input
         name_label = self.small_font.render("Enter Name:", True, BLUE)
-        self.screen.blit(name_label, (50, 270))
+        label_y = self.name_input_box.y - 35
+        self.screen.blit(name_label, (center_x - name_label.get_width() // 2, label_y))
         pygame.draw.rect(self.screen, BACKGROUND, self.name_input_box)
         pygame.draw.rect(self.screen, WHITE if self.active_input else BLUE, self.name_input_box, 2)
         name_text = self.small_font.render(self.name + ("|" if self.cursor_visible else ""), True, BLUE)
@@ -43,7 +65,8 @@ class PlayerSetup:
 
         # Avatar selection
         avatar_label = self.small_font.render("Select Avatar:", True, BLUE)
-        self.screen.blit(avatar_label, (50, 350))
+        avatar_label_y = self.avatar_buttons[0].y - 35
+        self.screen.blit(avatar_label, (center_x - avatar_label.get_width() // 2, avatar_label_y))
         for i, avatar in enumerate(self.avatars):
             button = self.avatar_buttons[i]
             color = HOVER if i == self.selected_avatar else BACKGROUND
@@ -53,10 +76,12 @@ class PlayerSetup:
             self.screen.blit(avatar_scaled, (button.x + 5, button.y + 5))
 
         # Confirm button
+        screen_width, screen_height = self.screen.get_size()
+        center_x = screen_width // 2
         pygame.draw.rect(self.screen, GREEN, self.confirm_button)
         pygame.draw.rect(self.screen, BLACK, self.confirm_button, 2)
         confirm_text = self.small_font.render("CONFIRM", True, BLACK)
-        self.screen.blit(confirm_text, (225 - confirm_text.get_width() // 2, 665))
+        self.screen.blit(confirm_text, (center_x - confirm_text.get_width() // 2, self.confirm_button.centery - confirm_text.get_height() // 2))
 
         # Handle events
         for event in pygame.event.get():
@@ -134,10 +159,13 @@ class Menu:
         self.screen.blit(bg, (0, 0))
 
         self.draw_ships()
+        screen_width, screen_height = self.screen.get_size()
         title = self.font.render("BATTLESHIP", True, RED)
         online_text = self.small_font.render("ONLINE", True, RED)
-        self.screen.blit(title, (225 - title.get_width() // 2, 140))
-        self.screen.blit(online_text, (225 - online_text.get_width() // 2, 190))
+        center_x = screen_width // 2
+        title_y = screen_height // 4
+        self.screen.blit(title, (center_x - title.get_width() // 2, title_y))
+        self.screen.blit(online_text, (center_x - online_text.get_width() // 2, title_y + 50))
 
         pygame.draw.rect(self.screen, self.create_button_color, self.create_button)
         pygame.draw.rect(self.screen, BLACK, self.create_button, 4)
@@ -146,16 +174,18 @@ class Menu:
         pygame.draw.rect(self.screen, BACKGROUND, self.solo_button)
         pygame.draw.rect(self.screen, BLACK, self.solo_button, 4)
 
+        screen_width, screen_height = self.screen.get_size()
+        center_x = screen_width // 2
         self.screen.blit(
-            self.create_text, (225 - self.create_text.get_width() // 2, 365)
+            self.create_text, (center_x - self.create_text.get_width() // 2, self.create_button.centery - self.create_text.get_height() // 2)
         )
         self.screen.blit(
-            self.solo_text, (225 - self.solo_text.get_width() // 2, 565)
+            self.solo_text, (center_x - self.solo_text.get_width() // 2, self.solo_button.centery - self.solo_text.get_height() // 2)
         )
         if not self.join_hover:
             self.join_code = ""
             self.screen.blit(
-                self.join_text, (225 - self.join_text.get_width() // 2, 465)
+                self.join_text, (center_x - self.join_text.get_width() // 2, self.join_button.centery - self.join_text.get_height() // 2)
             )
         else:
             for event in pygame.event.get():
@@ -175,14 +205,16 @@ class Menu:
                 self.join_code = self.cursor
             else:
                 self.join_code = self.join_code.strip("_")
+            screen_width, screen_height = self.screen.get_size()
+            center_x = screen_width // 2
             code_text = self.small_font.render(self.join_code, True, BLUE)
-            self.screen.blit(code_text, (225 - code_text.get_width() // 2, 465))
+            self.screen.blit(code_text, (center_x - code_text.get_width() // 2, self.join_button.centery - code_text.get_height() // 2))
             if self.invalid_code:
                 text = self.small_font.render("Invalid Code", True, RED)
-                self.screen.blit(text, (230 - text.get_width() // 2, 585))
+                self.screen.blit(text, (center_x - text.get_width() // 2, self.solo_button.y + self.solo_button.height + 20))
             elif self.game_taken:
                 text = self.small_font.render("Game Occupied", True, RED)
-                self.screen.blit(text, (230 - text.get_width() // 2, 585))
+                self.screen.blit(text, (center_x - text.get_width() // 2, self.solo_button.y + self.solo_button.height + 20))
         m_x, m_y = pygame.mouse.get_pos()
         if self.create_button.collidepoint(m_x, m_y):
             if pygame.mouse.get_pressed(3)[0]:
@@ -207,8 +239,12 @@ class Menu:
             self.game_taken = False
             self.create_button_color = BACKGROUND
 
-        self.draw_particles([50, 170])
-        self.draw_particles([390, 170])
+        screen_width, screen_height = self.screen.get_size()
+        center_x = screen_width // 2
+        title_y = screen_height // 4
+        # Particles on either side of title
+        self.draw_particles([center_x - 200, title_y + 30])
+        self.draw_particles([center_x + 200, title_y + 30])
 
     def update_cursor(self):
         self.blink_count += 1
@@ -225,11 +261,19 @@ class Menu:
         self.game_taken = False
 
     def load_entities(self):
+        screen_width, screen_height = self.screen.get_size()
         self.create_text = self.small_font.render("NEW GAME", True, BLUE)
         self.join_text = self.small_font.render("JOIN GAME", True, BLUE)
-        self.create_button = pygame.Rect(100, 350, 250, 60)
-        self.join_button = pygame.Rect(100, 450, 250, 60)
-        self.solo_button = pygame.Rect(100, 550, 250, 60)
+        button_width = 250
+        button_height = 60
+        button_spacing = 20
+        # Center buttons vertically and horizontally
+        total_height = (button_height * 3) + (button_spacing * 2)
+        start_y = screen_height // 2 - total_height // 2 + 50
+        center_x = screen_width // 2
+        self.create_button = pygame.Rect(center_x - button_width // 2, start_y, button_width, button_height)
+        self.join_button = pygame.Rect(center_x - button_width // 2, start_y + button_height + button_spacing, button_width, button_height)
+        self.solo_button = pygame.Rect(center_x - button_width // 2, start_y + (button_height + button_spacing) * 2, button_width, button_height)
         self.solo_text = self.small_font.render("PLAY SOLO", True, BLUE)
         self.join_hover = False
         self.join_code = ""

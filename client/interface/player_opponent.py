@@ -65,7 +65,9 @@ class Player:
 
 class Opponent:
     def __init__(self):
-        self.grid = make_grid(50, 400, 30, 370, BLACK)
+        # Horizontal layout: opponent board on left side
+        # Grid will be positioned dynamically, but use default for initialization
+        self.grid = make_grid(300, 650, 120, 470, BLACK)
         self.start_ticks = pygame.time.get_ticks()
         self.sunken_ships = {
             "Carrier": False,
@@ -84,10 +86,8 @@ class Opponent:
             for square in sx:
                 # Draw cell background
                 cell_rect = pygame.Rect(square[rect])
-                # Solid background for the cell
-                pygame.draw.rect(screen, (30, 30, 60, 200), cell_rect)  # Semi-transparent dark blue
-                # Cell border
-                pygame.draw.rect(screen, (80, 80, 120), cell_rect, 1)
+                # Light, subtle cell border only - no dark background
+                pygame.draw.rect(screen, (150, 150, 180), cell_rect, 1)
                 
                 # Highlight hovered cell
                 if self.is_hovered(pygame.mouse.get_pos(), cell_rect):
