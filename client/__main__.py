@@ -34,11 +34,10 @@ class Main:
                     # SOLO mode
                     if isinstance(r, dict) and r.get("category") == "SOLO":
                         if not self.game:
-                            # Create player and bot ship grids
-                            player_grid = create_ship_grid(sx=50, ex=400, sy=390, ey=730)
-                            bot_grid = create_ship_grid(sx=50, ex=400, sy=30, ey=370)
-                            bot = Bot(grid=bot_grid)
-                            self.game = Game(self.screen, None, ai=bot, player_grid=player_grid)
+                            # Create bot with temporary grid (will be repositioned in Game.__init__)
+                            # The Game class will create grids at correct positions
+                            bot = Bot()
+                            self.game = Game(self.screen, None, ai=bot, player_grid=None)
                         self.menu.show_menu = False
                         continue
                     # Online flow: go to player setup

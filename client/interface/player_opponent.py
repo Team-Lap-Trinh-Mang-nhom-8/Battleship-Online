@@ -21,20 +21,11 @@ class Player:
 
         self.ship_img = pygame.image.load("client/assets/ship.png")
         sheet = pygame.image.load("client/assets/ship_fire.png")
-        self.wrecks = [
-            image_at(sheet, (1, 0, 35, 35)),
-            image_at(sheet, (36, 0, 35, 35)),
-            image_at(sheet, (71, 0, 35, 35)),
-            image_at(sheet, (106, 0, 35, 35)),
-        ]
-        self.ship_destroyed_img = self.wrecks[0]
-        self.fire_index = 0
+        # Use only one fire frame for continuous burning effect (no flickering)
+        # Frame 1 (index 0) is typically the most visible fire frame
+        self.ship_destroyed_img = image_at(sheet, (1, 0, 35, 35))
 
     def draw_grid(self, screen):
-        self.fire_index += 1
-        if self.fire_index >= 28:
-            self.fire_index = 0
-        self.ship_destroyed_img = self.wrecks[self.fire_index // 7]
         for sx in self.grid:
             for square in sx:
                 cell_rect = pygame.Rect(square[rect])
@@ -46,7 +37,7 @@ class Player:
 
                 if square[ship] and square[aimed]:
                     r = pygame.Rect(square[rect])
-                    r.y += 10
+                    # Keep fire effect within the cell bounds
                     screen.blit(self.ship_destroyed_img, r)
                 elif square[ship]:
                     screen.blit(self.ship_img, pygame.Rect(square[rect]))

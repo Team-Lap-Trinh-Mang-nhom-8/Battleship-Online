@@ -20,6 +20,10 @@ class Game:
         self.player = Player()
         self.opponent = Opponent()
         self.n = network
+        
+        # Layout cache for dynamic positioning (must be initialized before update_board_positions)
+        self.layout_cache = {}
+        
         # AI (solo) support
         self.ai = ai
         if self.ai:
@@ -34,6 +38,9 @@ class Game:
             
             # Create grids at correct positions
             from client.misc.utils import make_grid
+            from client.misc.ai import create_ship_grid
+            
+            # Create opponent grid (AI's ships) at correct position
             self.opponent.grid = make_grid(
                 opponent_board_x, 
                 opponent_board_x + (grid_cells * grid_size),
@@ -41,7 +48,17 @@ class Game:
                 opponent_board_y + (grid_cells * grid_size),
                 BLACK
             )
-            # Copy ship positions from AI grid
+            
+            # Create AI grid with ships at correct position, then copy ship positions
+            ai_grid = create_ship_grid(
+                sx=opponent_board_x,
+                ex=opponent_board_x + (grid_cells * grid_size),
+                sy=opponent_board_y,
+                ey=opponent_board_y + (grid_cells * grid_size)
+            )
+            # Update bot's grid to use the new grid
+            self.ai.grid = ai_grid
+            # Copy ship positions from AI grid to opponent grid
             for i in range(min(len(self.ai.grid), len(self.opponent.grid))):
                 for j in range(min(len(self.ai.grid[i]), len(self.opponent.grid[i]))):
                     if self.ai.grid[i][j].get("ship"):
@@ -51,7 +68,6 @@ class Game:
                 self.player.grid = player_grid
             else:
                 # create a random player grid at correct position
-                from client.misc.ai import create_ship_grid
                 self.player.grid = create_ship_grid(
                     sx=player_board_x,
                     ex=player_board_x + (grid_cells * grid_size),
@@ -89,9 +105,7 @@ class Game:
             pygame.image.load("client/assets/avatar3.jpg"),
             pygame.image.load("client/assets/avatar4.jpg"),
         ]
-        # Layout cache for dynamic positioning
-        self.layout_cache = {}
-        # Calculate and store board positions
+        # Calculate and store board positions (layout_cache already initialized above)
         self.update_board_positions()
 
     def update_board_positions(self):
@@ -386,7 +400,7 @@ class Game:
                 for es, square in enumerate(sx):
                     if square[ship]:
                         r = pygame.Rect(square[rect])
-                        r.y += 10
+                        # Keep fire effect within the cell bounds
                         self.screen.blit(self.player.ship_destroyed_img, r)
                         break
         screen_width, screen_height = self.screen.get_size()
