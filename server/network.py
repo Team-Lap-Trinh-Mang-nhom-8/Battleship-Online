@@ -14,6 +14,8 @@ class Room:
     def __init__(self):
         self.players = []
         self.sent_board = False
+        self.rematch_votes = set()
+        self.game_over = False
         self._id = ""
 
     def send_board(self):
@@ -44,6 +46,9 @@ class Room:
                     ],
                 }
             )
+        # Reset game_over/rematch state when starting a new board
+        self.game_over = False
+        self.rematch_votes.clear()
 
 
 class ServerPlayer:
@@ -91,9 +96,17 @@ class Network:
                 if not data:
                     break
                 if data["category"] == "OVER":
-                    if player.room and player.room._id in self.game_list:
-                        del self.game_list[player.room._id]
-                    player.room = None
+                    # Mark room as game over and broadcast to both players.
+                    if player.room:
+                        player.room.game_over = True
+                        # Broadcast GAME_OVER with player who sent the message as "by"
+                        for p in list(player.room.players):
+                            try:
+                                p.conn.send({"category": "GAME_OVER", "payload": {"by": player.name}})
+                            except Exception:
+                                pass
+                    # Do not delete the room immediately; allow rematch flow.
+                    player.room = player.room
                 elif data["category"] == "CREATE":
                     player.name = data.get("name", "")
                     player.avatar = data.get("avatar", 0)
@@ -117,6 +130,49 @@ class Network:
                         player.conn.send("INVALID")
                 elif data["category"] == "POSITION":
                     player.opponent.conn.send(data)
+                elif data["category"] == "REMATCH_OFFER":
+                    # Add player's vote and start a new board when both agree
+                    if player.room:
+                        with lock:
+                            player.room.rematch_votes.add(player)
+                            # Notify both players about current rematch status
+                            try:
+                                offered_names = [p.name for p in player.room.rematch_votes]
+                                for p in list(player.room.players):
+                                    try:
+                                        p.conn.send({"category": "REMATCH_STATUS", "payload": {"offers": offered_names}})
+                                    except Exception:
+                                        pass
+                            except Exception:
+                                pass
+                            # Only start rematch when both players present and both voted
+                            if len(player.room.players) == 2 and len(player.room.rematch_votes) == 2:
+                                try:
+                                    # Inform clients rematch is starting
+                                    for p in list(player.room.players):
+                                        try:
+                                            p.conn.send({"category": "REMATCH_START", "payload": {}})
+                                        except Exception:
+                                            pass
+                                    player.room.rematch_votes.clear()
+                                    player.room.send_board()
+                                except Exception:
+                                    pass
+                elif data["category"] == "SURRENDER" or data["category"] == "FORFEIT":
+                    # Player concedes — declare opponent as winner
+                    if player.room:
+                        player.room.game_over = True
+                        winner_name = None
+                        try:
+                            winner = player.opponent
+                            winner_name = winner.name if winner else None
+                        except Exception:
+                            winner_name = None
+                        for p in list(player.room.players):
+                            try:
+                                p.conn.send({"category": "GAME_OVER", "payload": {"by": winner_name, "reason": "surrender"}})
+                            except Exception:
+                                pass
                 elif data["category"] == "CHAT":
                     player.opponent.conn.send(data)
             except:

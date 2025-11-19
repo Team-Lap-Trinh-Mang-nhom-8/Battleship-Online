@@ -81,7 +81,20 @@ class Game:
         self.sent = set()
         self.final_text = ""
         self.big_font = pygame.font.Font("client/assets/retrofont.ttf", 34)
-        self.menu_button = pygame.Rect(125, 0, 200, 28)
+        # Compute top UI button positions based on screen size
+        sw, sh = self.screen.get_size()
+        self.menu_button = pygame.Rect(10, 10, 160, 35)
+        self.surrender_button = pygame.Rect(sw - 130, 10, 120, 28)
+        # Place chat toggle next to menu by default
+        self.chat_toggle_button = pygame.Rect(self.menu_button.right + 10, 10, 95, 28)
+        # Confirmation state for surrender popup
+        self.surrender_confirm = False
+        # Rematch state
+        self.rematch_offered = False
+        self.waiting_rematch = False
+        self.opponent_offered = False
+        # Mouse click debounce (track previous pressed state)
+        self._mouse_last_pressed = False
 
         # Chat functionality
         self.chat_messages = []
@@ -89,7 +102,7 @@ class Game:
         self.chat_active = False
         self.chat_visible = False
         self.small_font = pygame.font.Font("client/assets/retrofont.ttf", 12)
-        self.chat_toggle_button = pygame.Rect(350, 0, 95, 28)
+        # chat_toggle_button already positioned relative to menu in initializer
         self.chat_box = pygame.Rect(10, 30, 430, 100)
         self.chat_input_box = pygame.Rect(15, 135, 350, 20)
         self.send_button = pygame.Rect(370, 135, 65, 20)
@@ -111,29 +124,36 @@ class Game:
     def update_board_positions(self):
         """Calculate board positions relative to avatar panels"""
         screen_width, screen_height = self.screen.get_size()
-        # Player panel at bottom-left
-        player_panel = pygame.Rect(10, screen_height - 90, 180, 80)
-        # Opponent panel at top-right
-        opponent_panel = pygame.Rect(screen_width - 190, 10, 180, 80)
-        
         # Grid size calculations
         grid_size = 35
         grid_cells = 10
         grid_total_size = grid_cells * grid_size
-        
-        # Player board: positioned next to player avatar (to the right, above)
-        player_board_x = player_panel.x + player_panel.width + 20
-        player_board_y = player_panel.y - grid_total_size - 20
-        
-        # Opponent board: positioned near opponent avatar (to the left, below)
-        opponent_board_x = opponent_panel.x - grid_total_size - 20
-        opponent_board_y = opponent_panel.y + opponent_panel.height + 20
-        
+
+        # Place boards side-by-side: player on the left, opponent on the right
+        margin_x = 30
+        left_board_x = margin_x
+        right_board_x = screen_width - margin_x - grid_total_size
+
+        # Vertically center boards
+        board_y = (screen_height - grid_total_size) // 2
+
+        # Avatar panels above each board
+        panel_w, panel_h = 180, 80
+        player_panel = pygame.Rect(left_board_x + (grid_total_size - panel_w) // 2, board_y - panel_h - 16, panel_w, panel_h)
+        opponent_panel = pygame.Rect(right_board_x + (grid_total_size - panel_w) // 2, board_y - panel_h - 16, panel_w, panel_h)
+
         # Store positions
-        self.layout_cache["player_board_pos"] = (player_board_x, player_board_y)
-        self.layout_cache["opponent_board_pos"] = (opponent_board_x, opponent_board_y)
+        self.layout_cache["player_board_pos"] = (left_board_x, board_y)
+        self.layout_cache["opponent_board_pos"] = (right_board_x, board_y)
         self.layout_cache["player_panel"] = player_panel
         self.layout_cache["opponent_panel"] = opponent_panel
+        # Update top-right/inline UI positions (surrender, chat toggle) in case of resize
+        try:
+            sw, _ = self.screen.get_size()
+            self.surrender_button.topleft = (sw - self.surrender_button.width - 10, 10)
+            self.chat_toggle_button.topleft = (self.menu_button.right + 10, 10)
+        except Exception:
+            pass
 
     def draw_avatar_panels(self, player_panel, opponent_panel):
         """Draw avatar panels with names"""
@@ -213,6 +233,34 @@ class Game:
                     self.opp_disconnected = True
                     break
                 if isinstance(received, dict):
+                    if received.get("category") == "GAME_OVER":
+                        payload = received.get("payload", {})
+                        by = payload.get("by")
+                        # If 'by' equals our player name, we won; otherwise we lost
+                        if by and by == self.player_name:
+                            self.final_text = "You Won!"
+                        else:
+                            # If reason is surrender and 'by' refers to opponent, we won
+                            self.final_text = "You Lost!"
+                        self.game_over = True
+                        # Ensure any active surrender confirmation popup is closed
+                        self.surrender_confirm = False
+                        # do NOT auto-send OVER; wait for player to return to menu
+                        continue
+                    elif received.get("category") == "REMATCH_STATUS":
+                        payload = received.get("payload", {})
+                        offers = payload.get("offers", [])
+                        # If opponent's name in offers, flag opponent_offered
+                        try:
+                            opp_name = self.opponent_name
+                            self.opponent_offered = any(o == opp_name for o in offers)
+                        except Exception:
+                            self.opponent_offered = False
+                        continue
+                    elif received.get("category") == "REMATCH_START":
+                        # Server indicates rematch is starting; wait for BOARD which will reset states
+                        self.waiting_rematch = True
+                        continue
                     if received["category"] == "BOARD":
                         received = received["payload"]
                         self.waiting = False
@@ -264,6 +312,14 @@ class Game:
                         if len(received) > 3:
                             self.opponent_name = received[3]
                             self.opponent_avatar = received[4]
+                        # Reset rematch and game state when a new board arrives
+                        self.rematch_offered = False
+                        self.waiting_rematch = False
+                        self.opponent_offered = False
+                        # Clear game-over flags so UI switches back to play
+                        self.game_over = False
+                        self.final_text = ""
+                        self.sent_over = False
                     elif received["category"] == "ID":
                         self.room_id = received["payload"]
                     elif received["category"] == "POSITION":
@@ -278,6 +334,9 @@ class Game:
     def render(self):
         # Get screen dimensions
         screen_width, screen_height = self.screen.get_size()
+        # Mouse debounce: detect rising edge (pressed now, not pressed previously)
+        pressed = pygame.mouse.get_pressed(3)[0]
+        rising = pressed and not self._mouse_last_pressed
         
         # Scale background to fill the entire screen without changing aspect ratio
         bg_width, bg_height = self.background.get_size()
@@ -348,7 +407,27 @@ class Game:
         
         # Draw avatar panels
         self.draw_avatar_panels(player_panel, opponent_panel)
-        
+
+        # Draw surrender button
+        pygame.draw.rect(self.screen, (120, 20, 20), self.surrender_button)
+        pygame.draw.rect(self.screen, WHITE, self.surrender_button, 2)
+        s_font = pygame.font.Font("client/assets/retrofont.ttf", 14)
+        s_text = s_font.render("Surrender", True, WHITE)
+        self.screen.blit(s_text, (self.surrender_button.x + (self.surrender_button.width - s_text.get_width()) // 2, self.surrender_button.y + 6))
+        # Handle surrender click -> send immediately (no confirmation popup)
+        if (
+            self.surrender_button.collidepoint(*pygame.mouse.get_pos())
+            and rising
+            and not self.waiting
+            and not self.game_over
+        ):
+            # send surrender immediately and update sent flag
+            if self.n:
+                try:
+                    self.n.send({"category": "SURRENDER"})
+                    self.sent_over = True
+                except Exception:
+                    pass
         self.player.draw_grid(self.screen)
         for ex, sx in enumerate(self.opponent.grid):
             for es, square in enumerate(sx):
@@ -391,6 +470,8 @@ class Game:
                                 self.n.send({"category": "POSITION", "payload": x})
         self.opponent.draw_grid(self.screen)
         self.draw_chat()
+        # Update last mouse state for debounce
+        self._mouse_last_pressed = pressed
 
     
 
@@ -404,15 +485,14 @@ class Game:
                         self.screen.blit(self.player.ship_destroyed_img, r)
                         break
         screen_width, screen_height = self.screen.get_size()
-        # Update menu button position for horizontal layout
-        self.menu_button = pygame.Rect(screen_width // 2 - 100, 10, 200, 35)
+        # Draw menu button (fixed top-left)
         menu_surface = pygame.Surface((self.menu_button.width, self.menu_button.height), pygame.SRCALPHA)
         menu_surface.fill((50, 50, 80, 200))
         self.screen.blit(menu_surface, self.menu_button.topleft)
         pygame.draw.rect(self.screen, WHITE, self.menu_button, 2)
         font = pygame.font.Font("client/assets/retrofont.ttf", 16)
         menu_text = font.render("Return To Menu", True, WHITE)
-        self.screen.blit(menu_text, (self.menu_button.centerx - menu_text.get_width() // 2, self.menu_button.centery - menu_text.get_height() // 2))
+        self.screen.blit(menu_text, (self.menu_button.x + (self.menu_button.width - menu_text.get_width()) // 2, self.menu_button.y + (self.menu_button.height - menu_text.get_height()) // 2))
 
         center_x = screen_width // 2
         center_y = screen_height // 2
@@ -421,11 +501,49 @@ class Game:
             txt,
             (center_x - txt.get_width() // 2, center_y - txt.get_height() // 2),
         )
+        # Mouse debounce for game over buttons
+        pressed = pygame.mouse.get_pressed(3)[0]
+        rising = pressed and not self._mouse_last_pressed
+        # Play Again button
+        play_rect = pygame.Rect(center_x - 100, center_y + 60, 200, 40)
+        if not self.waiting_rematch:
+            pygame.draw.rect(self.screen, (0, 120, 0), play_rect)
+            pygame.draw.rect(self.screen, WHITE, play_rect, 2)
+            play_text = font.render("Play Again", True, WHITE)
+            self.screen.blit(play_text, (play_rect.centerx - play_text.get_width() // 2, play_rect.centery - play_text.get_height() // 2))
+        else:
+            # If opponent already offered, show small hint
+            if self.opponent_offered and not self.rematch_offered:
+                hint = self.small_font.render("Opponent offered rematch", True, WHITE)
+                self.screen.blit(hint, (center_x - hint.get_width() // 2, center_y + 105))
+            # Waiting for opponent message
+            waiting_text = self.small_font.render("Waiting for opponent...", True, WHITE)
+            self.screen.blit(waiting_text, (center_x - waiting_text.get_width() // 2, center_y + 70))
+
+        # Handle Play Again click
+        if not self.waiting_rematch and play_rect.collidepoint(*pygame.mouse.get_pos()) and rising:
+            if self.n:
+                try:
+                    self.n.send({"category": "REMATCH_OFFER"})
+                    self.rematch_offered = True
+                    self.waiting_rematch = True
+                except Exception:
+                    pass
         if (
             self.menu_button.collidepoint(*pygame.mouse.get_pos())
-            and pygame.mouse.get_pressed(3)[0]
+            and rising
         ):
+            # Notify server we're leaving the room/menu
+            if self.n:
+                try:
+                    self.n.send({"category": "OVER"})
+                except Exception:
+                    pass
+            # update mouse last state before returning
+            self._mouse_last_pressed = pressed
             return "MENU"
+        # update mouse last state when staying on game over screen
+        self._mouse_last_pressed = pressed
 
     def run(self):
         if not self.waiting:
@@ -455,10 +573,7 @@ class Game:
                     self.screen.blit(text, (0, 0))
                 self.draw_chat()
             else:
-                if not self.sent_over:
-                    if self.n:
-                        self.n.send({"category": "OVER"})
-                    self.sent_over = True
+                # Keep showing the game over screen; do not auto-send OVER or return to menu.
                 return self.game_over_screen()
         else:
             # Show background image behind waiting text
@@ -486,7 +601,7 @@ class Game:
             pygame.draw.rect(self.screen, BLACK, self.menu_button, 2)
             menu_font = pygame.font.Font("client/assets/retrofont.ttf", 14)
             menu_text = menu_font.render("Return To Menu", True, BLUE)
-            self.screen.blit(menu_text, (225 - menu_text.get_width() // 2, 6))
+            self.screen.blit(menu_text, (self.menu_button.x + (self.menu_button.width - menu_text.get_width()) // 2, self.menu_button.y + (self.menu_button.height - menu_text.get_height()) // 2))
             
             # Check for menu button click
             if (
