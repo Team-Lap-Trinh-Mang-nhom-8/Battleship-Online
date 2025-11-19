@@ -27,56 +27,8 @@ class Game:
         # AI (solo) support
         self.ai = ai
         if self.ai:
-            # Update board positions first
-            self.update_board_positions()
-            grid_size = 35
-            grid_cells = 10
-            
-            # Get board positions
-            player_board_x, player_board_y = self.layout_cache.get("player_board_pos", (210, 500))
-            opponent_board_x, opponent_board_y = self.layout_cache.get("opponent_board_pos", (200, 100))
-            
-            # Create grids at correct positions
-            from client.misc.utils import make_grid
-            from client.misc.ai import create_ship_grid
-            
-            # Create opponent grid (AI's ships) at correct position
-            self.opponent.grid = make_grid(
-                opponent_board_x, 
-                opponent_board_x + (grid_cells * grid_size),
-                opponent_board_y,
-                opponent_board_y + (grid_cells * grid_size),
-                BLACK
-            )
-            
-            # Create AI grid with ships at correct position, then copy ship positions
-            ai_grid = create_ship_grid(
-                sx=opponent_board_x,
-                ex=opponent_board_x + (grid_cells * grid_size),
-                sy=opponent_board_y,
-                ey=opponent_board_y + (grid_cells * grid_size)
-            )
-            # Update bot's grid to use the new grid
-            self.ai.grid = ai_grid
-            # Copy ship positions from AI grid to opponent grid
-            for i in range(min(len(self.ai.grid), len(self.opponent.grid))):
-                for j in range(min(len(self.ai.grid[i]), len(self.opponent.grid[i]))):
-                    if self.ai.grid[i][j].get("ship"):
-                        self.opponent.grid[i][j]["ship"] = self.ai.grid[i][j]["ship"]
-            
-            if player_grid:
-                self.player.grid = player_grid
-            else:
-                # create a random player grid at correct position
-                self.player.grid = create_ship_grid(
-                    sx=player_board_x,
-                    ex=player_board_x + (grid_cells * grid_size),
-                    sy=player_board_y,
-                    ey=player_board_y + (grid_cells * grid_size)
-                )
-            # start immediately in solo mode
-            self.waiting = False
-            self.player.is_turn = True
+            # Initial solo setup
+            self.init_solo_boards(player_grid)
 
         self.sent = set()
         self.final_text = ""
@@ -154,6 +106,55 @@ class Game:
             self.chat_toggle_button.topleft = (self.menu_button.right + 10, 10)
         except Exception:
             pass
+
+    def init_solo_boards(self, player_grid=None):
+        """(Re)initialize boards for solo (AI) play."""
+        if not self.ai:
+            return
+        self.update_board_positions()
+        grid_size = 35
+        grid_cells = 10
+        player_board_x, player_board_y = self.layout_cache.get("player_board_pos", (210, 500))
+        opponent_board_x, opponent_board_y = self.layout_cache.get("opponent_board_pos", (200, 100))
+        from client.misc.utils import make_grid
+        from client.misc.ai import create_ship_grid
+        # Opponent (AI) grid shell
+        self.opponent.grid = make_grid(
+            opponent_board_x,
+            opponent_board_x + (grid_cells * grid_size),
+            opponent_board_y,
+            opponent_board_y + (grid_cells * grid_size),
+            BLACK,
+        )
+        # Generate AI ships and copy to opponent grid
+        ai_grid = create_ship_grid(
+            sx=opponent_board_x,
+            ex=opponent_board_x + (grid_cells * grid_size),
+            sy=opponent_board_y,
+            ey=opponent_board_y + (grid_cells * grid_size),
+        )
+        self.ai.grid = ai_grid
+        for i in range(min(len(ai_grid), len(self.opponent.grid))):
+            for j in range(min(len(ai_grid[i]), len(self.opponent.grid[i]))):
+                if ai_grid[i][j].get("ship"):
+                    self.opponent.grid[i][j]["ship"] = ai_grid[i][j]["ship"]
+        # Player grid
+        if player_grid:
+            self.player.grid = player_grid
+        else:
+            self.player.grid = create_ship_grid(
+                sx=player_board_x,
+                ex=player_board_x + (grid_cells * grid_size),
+                sy=player_board_y,
+                ey=player_board_y + (grid_cells * grid_size),
+            )
+        # Activate play state
+        self.waiting = False
+        self.player.is_turn = True
+        # Clear game-over state if coming from previous game
+        self.game_over = False
+        self.final_text = ""
+        self.sent_over = False
 
     def draw_avatar_panels(self, player_panel, opponent_panel):
         """Draw avatar panels with names"""
@@ -421,13 +422,18 @@ class Game:
             and not self.waiting
             and not self.game_over
         ):
-            # send surrender immediately and update sent flag
-            if self.n:
-                try:
-                    self.n.send({"category": "SURRENDER"})
-                    self.sent_over = True
-                except Exception:
-                    pass
+            if self.ai:
+                # Local solo surrender: immediate loss
+                self.game_over = True
+                self.final_text = "You Lost!"
+            else:
+                # Network surrender
+                if self.n:
+                    try:
+                        self.n.send({"category": "SURRENDER"})
+                        self.sent_over = True
+                    except Exception:
+                        pass
         self.player.draw_grid(self.screen)
         for ex, sx in enumerate(self.opponent.grid):
             for es, square in enumerate(sx):
@@ -522,13 +528,19 @@ class Game:
 
         # Handle Play Again click
         if not self.waiting_rematch and play_rect.collidepoint(*pygame.mouse.get_pos()) and rising:
-            if self.n:
-                try:
-                    self.n.send({"category": "REMATCH_OFFER"})
-                    self.rematch_offered = True
-                    self.waiting_rematch = True
-                except Exception:
-                    pass
+            if self.ai:
+                # Solo replay: regenerate boards
+                self.player = Player()
+                self.opponent = Opponent()
+                self.init_solo_boards()
+            else:
+                if self.n:
+                    try:
+                        self.n.send({"category": "REMATCH_OFFER"})
+                        self.rematch_offered = True
+                        self.waiting_rematch = True
+                    except Exception:
+                        pass
         if (
             self.menu_button.collidepoint(*pygame.mouse.get_pos())
             and rising
@@ -683,13 +695,14 @@ class Game:
         self.opp_disconnected = False
         self.room_id = ""
         self.sent_over = False
-
         self.player = Player()
         self.opponent = Opponent()
-
         self.sent = set()
         self.final_text = ""
         self.chat_messages = []
         self.chat_input = ""
         self.chat_active = False
         self.chat_visible = False
+        # If solo mode, immediately reinitialize boards (prevent waiting screen)
+        if self.ai:
+            self.init_solo_boards()

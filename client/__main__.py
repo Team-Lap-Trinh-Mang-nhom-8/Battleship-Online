@@ -33,11 +33,14 @@ class Main:
                         break
                     # SOLO mode
                     if isinstance(r, dict) and r.get("category") == "SOLO":
-                        if not self.game:
-                            # Create bot with temporary grid (will be repositioned in Game.__init__)
-                            # The Game class will create grids at correct positions
+                        # Create or convert to solo game
+                        if not self.game or not getattr(self.game, "ai", None):
                             bot = Bot()
                             self.game = Game(self.screen, None, ai=bot, player_grid=None)
+                        else:
+                            # Existing solo game already reset when leaving previous session
+                            # Ensure solo boards (in case of manual interference)
+                            self.game.init_solo_boards()
                         self.menu.show_menu = False
                         continue
                     # Online flow: go to player setup
